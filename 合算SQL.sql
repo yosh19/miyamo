@@ -20,7 +20,7 @@ a.`dispatch_count_offline`,
 a.`dispatch_cancellation_count`,
 a.`dispatch_fee`,
 a.`dispatch_fee_income`
-
+a
 FROM
 
 #orders
