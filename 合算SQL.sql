@@ -111,7 +111,6 @@ LEFT JOIN
 		GROUP BY t_ord.owner_id) d
 
 
-
 WHERE a.`id` = b.`id`
 AND a.`id` = c.`id`
 AND a.`id` = d.`id`;
