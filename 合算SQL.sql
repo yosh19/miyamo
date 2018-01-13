@@ -59,20 +59,21 @@ LEFT JOIN
 GROUP BY owner_id) AS ord ON own.id = ord.owner_id) a,
 
 #deferred revenue 調整金
-(SELECT own.id,
-own.company_name,
-deferred_revenue_plus + deferred_revenue_minus AS deferred_revenue,
-dr.deferred_revenue_plus,
-dr.deferred_revenue_minus
-FROM owners AS own 
-LEFT JOIN 
-	(SELECT owner_id,
+(SELECT
+		t_own.id,
 		SUM(CASE WHEN `deferred_revenue` < 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue_minus,
-		SUM(CASE WHEN `deferred_revenue` > 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue_plus
-	FROM deferred_revenue 
-		WHERE '2017-12-23' = DATE_FORMAT(`date`, '%Y-%m-%d') 
-		AND `closing_process_id` = 1
-GROUP BY owner_id) AS dr ON own.id = dr.owner_id) b,
+		SUM(CASE WHEN `deferred_revenue` > 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue_plus,
+		SUM(CASE WHEN `deferred_revenue` < 0 THEN `deferred_revenue` ELSE 0 END) + 
+		SUM(CASE WHEN `deferred_revenue` > 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue
+FROM local_taxi.owners AS t_own 
+LEFT JOIN 
+	local_taxi.orders AS t_ord
+	ON t_own.id = t_ord.owner_id
+LEFT JOIN
+	local_taxi.deferred_revenue AS t_dr
+	ON t_dr.order_id = t_ord.id
+		WHERE '2017-12-23' = DATE_FORMAT(t_ord.`started_at`, '%Y-%m-%d')
+		AND `closing_process_id` = 1 GROUP BY t_own.id) b,
 
 
 #coupon_fee クーポン C
