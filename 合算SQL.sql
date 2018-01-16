@@ -44,7 +44,7 @@ ord.dispatch_count_offline,
 ord.dispatch_cancellation_count,
 own.dispatch_fee,
 (ord.dispatch_count_online + ord.dispatch_count_offline + ord.dispatch_cancellation_count) * own.dispatch_fee as dispatch_fee_income
- FROM owners AS own 
+ FROM taxi.owners AS own 
 LEFT JOIN 
 	(SELECT owner_id,
 		SUM(`fare` + `tips`) AS total_sales,
@@ -55,7 +55,7 @@ LEFT JOIN
 		COUNT(CASE WHEN `status` = 5 AND `is_online_payment`= 1 THEN `is_online_payment` ELSE NULL END) AS dispatch_count_online,
 		COUNT(CASE WHEN `status` = 5 AND `is_online_payment`= 0 THEN `is_online_payment` ELSE NULL END) AS dispatch_count_offline,
 		COUNT(CASE WHEN `cancelled_by` = 'DRIVER' THEN `cancelled_by` ELSE NULL END) AS dispatch_cancellation_count
-	FROM orders WHERE '2017-12-23' = DATE_FORMAT(`started_at`, '%Y-%m-%d') 
+	FROM taxi.orders WHERE '2017-12-23' = DATE_FORMAT(`started_at`, '%Y-%m-%d') 
 GROUP BY owner_id) AS ord ON own.id = ord.owner_id) a,
 
 #deferred revenue 調整金
@@ -65,12 +65,12 @@ GROUP BY owner_id) AS ord ON own.id = ord.owner_id) a,
 		SUM(CASE WHEN `deferred_revenue` > 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue_plus,
 		SUM(CASE WHEN `deferred_revenue` < 0 THEN `deferred_revenue` ELSE 0 END) + 
 		SUM(CASE WHEN `deferred_revenue` > 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue
-FROM local_taxi.owners AS t_own 
+FROM taxi.owners AS t_own 
 LEFT JOIN 
-	local_taxi.orders AS t_ord
+	taxi.orders AS t_ord
 	ON t_own.id = t_ord.owner_id
 LEFT JOIN
-	local_taxi.deferred_revenue AS t_dr
+	taxi.deferred_revenue AS t_dr
 	ON t_dr.order_id = t_ord.id
 		WHERE '2017-12-23' = DATE_FORMAT(t_ord.`started_at`, '%Y-%m-%d')
 		AND `closing_process_id` = 1 GROUP BY t_own.id) b,
@@ -80,12 +80,12 @@ LEFT JOIN
 (SELECT
 t_own.id,	
 SUM(CASE WHEN `amount`> 0 THEN `amount` ELSE 0 END) AS coupon_admin
-FROM local_taxi.owners AS t_own 
+FROM taxi.owners AS t_own 
 LEFT JOIN 
-	local_taxi.orders AS t_ord
+	taxi.orders AS t_ord
 	ON t_own.id = t_ord.owner_id
 LEFT JOIN
-	local_platform.distributed_coupons AS p_dist
+	platform.distributed_coupons AS p_dist
 	ON t_ord.coupon_id = p_dist.id
 		WHERE '2017-12-23' = DATE_FORMAT(t_ord.`started_at`, '%Y-%m-%d')
 		GROUP BY t_ord.owner_id) c,
@@ -99,13 +99,13 @@ SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 
 SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `amount`*`card_transaction_fee` ELSE 0 END) AS card_transaction_income,
 SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `stripe_fee` ELSE 0 END) AS captured_fee,
 SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `stripe_net` ELSE 0 END) AS captured_net
-FROM local_taxi.owners AS t_own 
+FROM taxi.owners AS t_own 
 LEFT JOIN 
-	local_taxi.orders AS t_ord
+	taxi.orders AS t_ord
 	ON t_own.id = t_ord.owner_id
 
 LEFT JOIN
-	local_taxi.payments AS t_payments
+	taxi.payments AS t_payments
 	ON t_ord.payment_id = t_payments.id
 		WHERE '2017-12-23' = DATE_FORMAT(t_ord.`started_at`, '%Y-%m-%d') 
 		AND `closing_process_id` = 1
