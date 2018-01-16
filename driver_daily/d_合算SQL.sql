@@ -11,7 +11,7 @@ b.`deferred_revenue_plus`,
 c.`coupon_admin`,
 d.`accrude`,
 d.`captured_payment`,
-d.`card_transaction_income`,
+d.`captured_payment` * a.`card_transaction_fee` AS card_transaction_income,
 a.`dispatch_count_online`,
 a.`dispatch_count_offline`,
 a.`dispatch_cancellation_count`,
@@ -19,16 +19,17 @@ a.`dispatch_fee`,
 a.`dispatch_fee_income`,
 (b.`deferred_revenue`-c.`coupon_admin`-d.`accrude`) AS total_deferred,
 (a.`fare_online`-b.`deferred_revenue`-c.`coupon_admin`-d.`accrude`) AS captured_payment_calc,
-(d.`card_transaction_income` + a.`dispatch_fee_income` + a.`communication_fee` + a.`bank_transfer_fee` -c.`coupon_admin`) AS total_fee,
-(a.`fare_online` + b.`deferred_revenue`-c.`coupon_admin`-d.`accrude` - d.`card_transaction_income` + a.`dispatch_fee_income` + a.`communication_fee` + a.`bank_transfer_fee` -c.`coupon_admin`) AS transfer_amount,
+(d.`captured_payment` * a.`card_transaction_fee` + a.`dispatch_fee_income` + a.`communication_fee` + a.`bank_transfer_fee` -c.`coupon_admin`) AS total_fee,
+(a.`fare_online` + b.`deferred_revenue`-c.`coupon_admin`-d.`accrude` - d.`captured_payment` * a.`card_transaction_fee` + a.`dispatch_fee_income` + a.`communication_fee` + a.`bank_transfer_fee` -c.`coupon_admin`) AS transfer_amount,
 d.`captured_fee`,
 d.`captured_net`
 
 FROM
 
-#drivers owners orders
+#drivers owners orders A
 (SELECT
 dri.id,
+own.card_transaction_fee,
 own.communication_fee,
 own.bank_transfer_fee,
 ord.total_sales, 
@@ -58,10 +59,12 @@ LEFT JOIN
 				COUNT(CASE WHEN `cancelled_by` = 'DRIVER' THEN `cancelled_by` ELSE NULL END) AS dispatch_cancellation_count
 		FROM taxi.orders WHERE '2017-12-23' = DATE_FORMAT(`started_at`, '%Y-%m-%d') 
 		GROUP BY driver_id
-	) AS ord ON dri.id = ord.driver_id) a,
+	) AS ord ON dri.id = ord.driver_id) a
+
+LEFT JOIN
 
 
-#deferred revenue 調整金
+#deferred revenue 調整金 B
 (SELECT
 		t_dri.id,
 		SUM(CASE WHEN `deferred_revenue` < 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue_minus,
@@ -76,9 +79,11 @@ LEFT JOIN
 	taxi.deferred_revenue AS t_dr
 	ON t_dr.order_id = t_ord.id
 		WHERE '2017-12-23' = DATE_FORMAT(t_ord.`started_at`, '%Y-%m-%d')
-		AND `closing_process_id` = 1 GROUP BY t_dri.id) b,
+		AND `closing_process_id` = 1 GROUP BY t_dri.id) b
 
+ON a.id = b.id
 
+LEFT JOIN 
 
 #coupon_fee クーポン C
 (SELECT
@@ -92,15 +97,19 @@ LEFT JOIN
 	platform.distributed_coupons AS p_dist
 	ON t_ord.coupon_id = p_dist.id
 		WHERE '2017-12-23' = DATE_FORMAT(t_ord.`started_at`, '%Y-%m-%d')
-		GROUP BY t_ord.driver_id) c,
+		GROUP BY t_ord.driver_id) c
 
+
+ON a.id = c.id
+
+LEFT JOIN 
 
 #payments D
 (SELECT
 t_dri.id,
 SUM(CASE WHEN t_payments.`error_code` IS NOT NULL AND t_payments.`payment_method` = 1 THEN `amount` ELSE 0 END) AS accrude,
 SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `amount` ELSE 0 END) AS captured_payment,
-SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `amount`*`card_transaction_fee` ELSE 0 END) AS card_transaction_income,
+#SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `amount`*`card_transaction_fee` ELSE 0 END) AS card_transaction_income,
 SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `stripe_fee` ELSE 0 END) AS captured_fee,
 SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `stripe_net` ELSE 0 END) AS captured_net
 FROM taxi.drivers AS t_dri
@@ -118,7 +127,4 @@ LEFT JOIN
 		AND `closing_process_id` = 1
 		GROUP BY t_ord.driver_id) d
 
-
-WHERE a.`id` = b.`id`
-AND a.`id` = c.`id`
-AND a.`id` = d.`id`;
+ON a.id = d.id;
