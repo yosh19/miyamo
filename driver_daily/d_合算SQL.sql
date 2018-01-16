@@ -66,33 +66,28 @@ LEFT JOIN
 
 #deferred revenue 調整金 B
 (SELECT
-		t_dri.id,
-		SUM(CASE WHEN `deferred_revenue` < 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue_minus,
-		SUM(CASE WHEN `deferred_revenue` > 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue_plus,
-		SUM(CASE WHEN `deferred_revenue` < 0 THEN `deferred_revenue` ELSE 0 END) + 
-		SUM(CASE WHEN `deferred_revenue` > 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue
-FROM taxi.drivers AS t_dri
-LEFT JOIN 
+	t_ord.driver_id,
+	SUM(CASE WHEN `deferred_revenue` < 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue_minus,
+	SUM(CASE WHEN `deferred_revenue` > 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue_plus,
+	SUM(CASE WHEN `deferred_revenue` < 0 THEN `deferred_revenue` ELSE 0 END) + 
+	SUM(CASE WHEN `deferred_revenue` > 0 THEN `deferred_revenue` ELSE 0 END) AS deferred_revenue
+FROM 
 	taxi.orders AS t_ord
-	ON t_ord.driver_id = t_dri.id
 LEFT JOIN
 	taxi.deferred_revenue AS t_dr
 	ON t_dr.order_id = t_ord.id
 		WHERE '2017-12-23' = DATE_FORMAT(t_ord.`started_at`, '%Y-%m-%d')
-		AND `closing_process_id` = 1 GROUP BY t_dri.id) b
+		AND `closing_process_id` = 1 GROUP BY t_ord.driver_id) b
 
-ON a.id = b.id
+ON a.id = b.driver_id
 
 LEFT JOIN 
 
 #coupon_fee クーポン C
 (SELECT
-t_dri.id,	
-SUM(CASE WHEN `amount`> 0 THEN `amount` ELSE 0 END) AS coupon_admin
-FROM taxi.drivers AS t_dri 
-LEFT JOIN 
-	taxi.orders AS t_ord
-	ON t_dri.id = t_ord.driver_id
+	t_ord.driver_id,
+	SUM(CASE WHEN `amount`> 0 THEN `amount` ELSE 0 END) AS coupon_admin
+FROM taxi.orders AS t_ord
 LEFT JOIN
 	platform.distributed_coupons AS p_dist
 	ON t_ord.coupon_id = p_dist.id
@@ -100,26 +95,19 @@ LEFT JOIN
 		GROUP BY t_ord.driver_id) c
 
 
-ON a.id = c.id
+ON a.id = c.driver_id
 
 LEFT JOIN 
 
 #payments D
 (SELECT
-t_dri.id,
+t_ord.driver_id,
 SUM(CASE WHEN t_payments.`error_code` IS NOT NULL AND t_payments.`payment_method` = 1 THEN `amount` ELSE 0 END) AS accrude,
 SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `amount` ELSE 0 END) AS captured_payment,
 #SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `amount`*`card_transaction_fee` ELSE 0 END) AS card_transaction_income,
 SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `stripe_fee` ELSE 0 END) AS captured_fee,
 SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `stripe_net` ELSE 0 END) AS captured_net
-FROM taxi.drivers AS t_dri
-LEFT JOIN 
-	taxi.owners AS t_own
-	ON t_dri.owner_id = t_own.id
-LEFT JOIN 
-	taxi.orders AS t_ord
-	ON t_dri.id = t_ord.driver_id
-
+FROM taxi.orders AS t_ord
 LEFT JOIN
 	taxi.payments AS t_payments
 	ON t_ord.payment_id = t_payments.id
@@ -127,4 +115,4 @@ LEFT JOIN
 		AND `closing_process_id` = 1
 		GROUP BY t_ord.driver_id) d
 
-ON a.id = d.id;
+ON a.id = d.driver_id;

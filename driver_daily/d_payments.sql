@@ -19,3 +19,7 @@ LEFT JOIN
 		WHERE '2017-12-23' = DATE_FORMAT(t_ord.`started_at`, '%Y-%m-%d') 
 		AND `closing_process_id` = 1
 		GROUP BY t_ord.driver_id
+
+
+
+
