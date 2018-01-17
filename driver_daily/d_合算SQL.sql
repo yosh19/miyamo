@@ -10,9 +10,9 @@ b.`deferred_revenue`,
 b.`deferred_revenue_minus`,
 b.`deferred_revenue_plus`,
 c.`coupon_admin`,
-d.`accrude`,
-(b.`deferred_revenue`-c.`coupon_admin`-d.`accrude`) AS total_deferred,
-(a.`fare_online`-b.`deferred_revenue`-c.`coupon_admin`-d.`accrude`) AS captured_payment_calc,
+d.`accrued`,
+(b.`deferred_revenue`-c.`coupon_admin`-d.`accrued`) AS total_deferred,
+(a.`fare_online`-b.`deferred_revenue`-c.`coupon_admin`-d.`accrued`) AS captured_payment_calc,
 d.`captured_payment`,
 a.`card_transaction_rate`,
 d.`captured_payment` * a.`card_transaction_rate` AS card_transaction_income,
@@ -23,7 +23,7 @@ a.`dispatch_fee`,
 a.`dispatch_fee_income`,
 
 (d.`captured_payment` * a.`card_transaction_rate` + a.`dispatch_fee_income` + a.`communication_fee` + a.`bank_transfer_fee` -c.`coupon_admin`) AS total_fee,
-(a.`fare_online` + b.`deferred_revenue`-c.`coupon_admin`-d.`accrude` - d.`captured_payment` * a.`card_transaction_rate` + a.`dispatch_fee_income` + a.`communication_fee` + a.`bank_transfer_fee` -c.`coupon_admin`) AS transfer_amount,
+(a.`fare_online` + b.`deferred_revenue`-c.`coupon_admin`-d.`accrued` - d.`captured_payment` * a.`card_transaction_rate` + a.`dispatch_fee_income` + a.`communication_fee` + a.`bank_transfer_fee` -c.`coupon_admin`) AS transfer_amount,
 d.`captured_fee`,
 d.`captured_net`
 
@@ -106,7 +106,7 @@ LEFT JOIN
 #payments D
 (SELECT
 t_ord.driver_id,
-SUM(CASE WHEN t_payments.`error_code` IS NOT NULL AND t_payments.`payment_method` = 1 THEN `amount` ELSE 0 END) AS accrude,
+SUM(CASE WHEN t_payments.`error_code` IS NOT NULL AND t_payments.`payment_method` = 1 THEN `amount` ELSE 0 END) AS accrued,
 SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `amount` ELSE 0 END) AS captured_payment,
 #SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `amount`*`card_transaction_rate` ELSE 0 END) AS card_transaction_income,
 SUM(CASE WHEN t_payments.`error_code` IS NULL AND t_payments.`payment_method` = 1  THEN `stripe_fee` ELSE 0 END) AS captured_fee,
